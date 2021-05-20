@@ -33,6 +33,14 @@ export class Transform3D {
     this.parent?.add(this);
   }
 
+  public localToWorld(vector: Vector3): Vector3 {
+    return vector.transformMatrix4(this.worldMatrix);
+  }
+
+  public worldToLocal(vector: Vector3): Vector3 {
+    return vector.transformMatrix4(this.worldMatrix.invert());
+  }
+
   public updateMatrix(): void {
     this.matrix = Matrix4.makeTRS(this.position, this.rotation, this.scale);
     this.invalidatedWorldMatrix = true;

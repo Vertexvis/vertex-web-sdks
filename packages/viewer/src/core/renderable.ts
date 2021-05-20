@@ -1,9 +1,7 @@
-import { Camera } from './camera';
-import { Renderer } from './renderer';
-import { ClientScene } from './scene';
+import { RenderContext } from './renderer';
 
 export interface Renderable {
-  willRender(renderer: Renderer, scene: ClientScene, camera: Camera): void;
+  willRender(context: RenderContext): void;
 
-  didRender(renderer: Renderer, scene: ClientScene, camera: Camera): void;
+  didRender(context: RenderContext): void;
 }

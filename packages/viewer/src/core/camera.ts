@@ -1,3 +1,4 @@
+import { Angle } from '@vertexvis/geometry';
 import { Vector3 } from './math';
 import { Matrix4 } from './math/matrix4';
 import { Transform3D } from './transform';
@@ -6,12 +7,20 @@ export class Camera extends Transform3D {
   public projectionMatrix = new Matrix4();
   public viewMatrix = new Matrix4();
   public projectionViewMatrix = new Matrix4();
+  public worldDirection = new Vector3(0, 0, 0);
+
+  public project(vector: Vector3): Vector3 {
+    return vector.transformMatrix4(this.projectionViewMatrix);
+  }
 
   public update(): void {
     this.updateWorldMatrix();
-
     this.viewMatrix = this.worldMatrix.invert();
-    this.projectionViewMatrix = this.projectionMatrix.multiply(this.viewMatrix);
+    this.worldDirection = new Vector3(
+      this.worldMatrix.m13,
+      this.worldMatrix.m23,
+      this.worldMatrix.m33
+    ).normalize();
   }
 }
 
@@ -37,19 +46,22 @@ export class PerspectiveCamera extends Camera {
   }
 
   private updateProjectionMatrix(): void {
-    const top =
-      (this.near * Math.tan((Math.PI / 180) * 0.5 * this.fov)) / this.zoom;
-    const height = 2 * top;
-    const width = this.aspect * height;
-    const left = -0.5 * width;
+    const ymax = this.near * Math.tan(Angle.toRadians(this.fov / 2.0));
+    const xmax = ymax * this.aspect;
+
+    const left = -xmax;
+    const right = xmax;
+    const top = ymax;
+    const bottom = -ymax;
 
     this.projectionMatrix = Matrix4.makePerspective(
       left,
-      left + width,
+      right,
       top,
-      top - height,
+      bottom,
       this.near,
       this.far
     );
+    this.projectionViewMatrix = this.projectionMatrix.multiply(this.viewMatrix);
   }
 }

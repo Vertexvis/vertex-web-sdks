@@ -1,10 +1,11 @@
-import { Camera } from './camera';
+import { Dimensions, Point } from '@vertexvis/geometry';
+import { Camera, PerspectiveCamera } from './camera';
+import { Plane } from './math';
 import { Matrix4 } from './math/matrix4';
 import { epsilon } from './math/utils';
 import { Vector3 } from './math/vector3';
 import type { Renderable } from './renderable';
-import { Renderer } from './renderer';
-import { ClientScene } from './scene';
+import { RenderContext, Renderer, RenderParams } from './renderer';
 import { Transform3D } from './transform';
 
 export class CSS3DObject extends Transform3D implements Renderable {
@@ -19,26 +20,71 @@ export class CSS3DObject extends Transform3D implements Renderable {
     element.style.pointerEvents = 'auto';
   }
 
-  public willRender(
-    renderer: Renderer,
-    scene: ClientScene,
-    camera: Camera
-  ): void {
+  public willRender({ camera, depthCanvas, viewport }: RenderContext): void {
+    if (depthCanvas != null) {
+      const occluded = this.isOccluded(depthCanvas, camera, viewport);
+      this.element.dataset.occluded = occluded.toString();
+    } else {
+      this.element.dataset.occluded = this.element.dataset.occluded;
+    }
+  }
+
+  public didRender(context: RenderContext): void {
     //
   }
 
-  public didRender(
-    renderer: Renderer,
-    scene: ClientScene,
-    camera: Camera
-  ): void {
-    //
+  private getScreenPosition(
+    vector: Vector3,
+    viewport: Dimensions.Dimensions
+  ): Point.Point {
+    const center = Dimensions.center(viewport);
+    const res = {
+      x: vector.x * center.x + center.x,
+      y: -vector.y * center.y + center.y,
+    };
+    return res;
+  }
+
+  private isOccluded(
+    depthCanvas: HTMLCanvasElement,
+    camera: Camera,
+    viewport: Dimensions.Dimensions
+  ): boolean {
+    if (camera instanceof PerspectiveCamera) {
+      const context = depthCanvas?.getContext('2d');
+      const pt = Vector3.fromMatrixPosition(this.worldMatrix);
+      const ndc = camera.project(pt);
+      const pixel = this.getScreenPosition(ndc, viewport);
+
+      const colorData = context?.getImageData(
+        Math.round(pixel.x),
+        Math.round(pixel.y),
+        1,
+        1
+      );
+
+      if (colorData != null) {
+        const zLength = camera.far - camera.near;
+        const depth = (colorData.data[0] / zLength) * zLength;
+        const plane = new Plane(
+          camera.worldDirection.negate(),
+          camera.position.distanceTo(new Vector3())
+        );
+        const distance = plane.distanceToPoint(pt) - camera.near;
+
+        const occluded = distance > depth;
+        console.log('occluded', depth, distance);
+        return occluded;
+      }
+    }
+
+    return false;
   }
 }
 
 export class CSS3DRenderer implements Renderer {
-  private width = 0;
-  private height = 0;
+  public width = 0;
+  public height = 0;
 
   private cameraFov = 0;
   private cssTransform = '';
@@ -59,7 +105,8 @@ export class CSS3DRenderer implements Renderer {
     this.height = height;
   }
 
-  public render(scene: ClientScene, camera: Camera): void {
+  public render(params: RenderParams): void {
+    const { scene, camera } = params;
     this.element.style.width = `${this.width}px`;
     this.element.style.height = `${this.height}px`;
     this.cameraElement.style.width = `${this.width}px`;
@@ -89,16 +136,17 @@ export class CSS3DRenderer implements Renderer {
       this.cssTransform = transform;
     }
 
-    this.renderObject(scene, scene, camera);
+    this.renderObject(scene, params);
   }
 
-  private renderObject(
-    object: Transform3D,
-    scene: ClientScene,
-    camera: Camera
-  ): void {
+  private renderObject(object: Transform3D, params: RenderParams): void {
+    const { camera } = params;
     if (object instanceof CSS3DObject) {
-      object.willRender(this, scene, camera);
+      const context = {
+        renderer: this,
+        ...params,
+      };
+      object.willRender(context);
 
       let transform = '';
 
@@ -118,11 +166,11 @@ export class CSS3DRenderer implements Renderer {
         this.cameraElement.appendChild(object.element);
       }
 
-      object.didRender(this, scene, camera);
+      object.didRender(context);
     }
 
     for (let i = 0; i < object.children.length; i++) {
-      this.renderObject(object.children[i], scene, camera);
+      this.renderObject(object.children[i], params);
     }
   }
 

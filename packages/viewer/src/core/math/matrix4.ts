@@ -79,7 +79,7 @@ export class Matrix4 {
     return this.elements[15];
   }
 
-  public constructor(private elements = makeIdentityArray()) {}
+  public constructor(public elements = makeIdentityArray()) {}
 
   public static makeTranslation(translation: Vector3): Matrix4 {
     const { x, y, z } = translation;
@@ -169,10 +169,10 @@ export class Matrix4 {
 
     /* eslint-disable prettier/prettier */
     return new Matrix4([
-      x, 0, a, 0,
-      0, y, b, 0,
-      0, 0, c, d,
-      0, 0, -1, 0
+      x, 0, 0, 0,
+      0, y, 0, 0,
+      a, b, c, -1,
+      0, 0, d, 0
     ])
     /* eslint-enable prettier/prettier */
   }

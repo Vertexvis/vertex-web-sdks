@@ -1,11 +1,15 @@
 import { Camera } from './camera';
-import { Renderer } from './renderer';
+import { Renderer, RenderParams } from './renderer';
 import { ClientScene } from './scene';
 import '../components';
 import { Frame } from '../types';
 import { Vector3 } from './math';
+import { HtmlImage, loadImageBytes } from '../rendering/imageLoaders';
+import { ImageAttributes } from '../types/frame';
 
 export class SyncedViewerElementRenderer implements Renderer {
+  public onBeforeRender?: (frame: Frame.Frame) => Promise<void>;
+
   public constructor(
     private viewer: HTMLVertexViewerElement,
     private renderer: Renderer,
@@ -21,19 +25,67 @@ export class SyncedViewerElementRenderer implements Renderer {
     this.renderer.setSize(width, height);
   }
 
-  public render(scene: ClientScene, camera: Camera): void {
-    this.renderer.render(scene, camera);
+  public render(params: RenderParams): void {
+    requestAnimationFrame(() => {
+      this.renderer.render(params);
+    });
   }
 
-  private handleFrameDrawn(event: Event): void {
+  private async handleFrameDrawn(event: Event): Promise<void> {
     const { detail: frame } = event as CustomEvent<Frame.Frame>;
     const { position, up, lookAt } = frame.sceneAttributes.camera;
+    const width = this.viewer.clientWidth;
+    const height = this.viewer.clientHeight;
+
+    if (frame.depthBuffer != null) {
+      loadImageBytes(frame.depthBuffer).then((image) => {
+        const canvas = this.createDepthCanvas(image, frame.imageAttributes);
+        this.render({
+          scene: this.scene,
+          camera: this.camera,
+          viewport: { width, height },
+          depthCanvas: canvas,
+        });
+      });
+    }
 
     this.camera.position = new Vector3(position.x, position.y, position.z);
     this.camera.up = new Vector3(up.x, up.y, up.z);
     this.camera.lookAt(new Vector3(lookAt.x, lookAt.y, lookAt.z));
 
-    this.setSize(this.viewer.clientWidth, this.viewer.clientHeight);
-    this.render(this.scene, this.camera);
+    this.setSize(width, height);
+
+    await this.onBeforeRender?.(frame);
+
+    this.render({
+      scene: this.scene,
+      camera: this.camera,
+      viewport: { width, height },
+      depthCanvas: undefined,
+    });
+  }
+
+  private createDepthCanvas(
+    image: HtmlImage,
+    attr: ImageAttributes
+  ): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = attr.frameDimensions.width;
+    canvas.height = attr.frameDimensions.height;
+
+    const context = canvas.getContext('2d');
+    if (context != null) {
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(
+        image.image,
+        attr.imageRect.x,
+        attr.imageRect.y,
+        image.image.width * attr.scaleFactor,
+        image.image.height * attr.scaleFactor
+      );
+    }
+
+    return canvas;
   }
 }
