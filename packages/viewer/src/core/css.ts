@@ -1,4 +1,5 @@
 import { Dimensions, Point } from '@vertexvis/geometry';
+import { DepthBuffer, getDepthInFrame } from '../workers/depth-buffer';
 import { Camera, PerspectiveCamera } from './camera';
 import { Plane } from './math';
 import { Matrix4 } from './math/matrix4';
@@ -20,9 +21,9 @@ export class CSS3DObject extends Transform3D implements Renderable {
     element.style.pointerEvents = 'auto';
   }
 
-  public willRender({ camera, depthCanvas, viewport }: RenderContext): void {
-    if (depthCanvas != null) {
-      const occluded = this.isOccluded(depthCanvas, camera, viewport);
+  public willRender({ camera, depthBuffer, viewport }: RenderContext): void {
+    if (depthBuffer != null) {
+      const occluded = this.isOccluded(depthBuffer, camera, viewport);
       this.element.dataset.occluded = occluded.toString();
     } else {
       this.element.dataset.occluded = this.element.dataset.occluded;
@@ -46,36 +47,27 @@ export class CSS3DObject extends Transform3D implements Renderable {
   }
 
   private isOccluded(
-    depthCanvas: HTMLCanvasElement,
+    depthBuffer: DepthBuffer,
     camera: Camera,
     viewport: Dimensions.Dimensions
   ): boolean {
     if (camera instanceof PerspectiveCamera) {
-      const context = depthCanvas?.getContext('2d');
+      const { near, far } = camera;
       const pt = Vector3.fromMatrixPosition(this.worldMatrix);
       const ndc = camera.project(pt);
       const pixel = this.getScreenPosition(ndc, viewport);
 
-      const colorData = context?.getImageData(
-        Math.round(pixel.x),
-        Math.round(pixel.y),
-        1,
-        1
+      const depth = getDepthInFrame(depthBuffer, pixel);
+      const normalizedDepth = depth * (far - near) + near;
+      const plane = new Plane(
+        camera.worldDirection.negate(),
+        camera.position.distanceTo(new Vector3())
       );
+      const distance = plane.distanceToPoint(pt);
 
-      if (colorData != null) {
-        const zLength = camera.far - camera.near;
-        const depth = (colorData.data[0] / zLength) * zLength;
-        const plane = new Plane(
-          camera.worldDirection.negate(),
-          camera.position.distanceTo(new Vector3())
-        );
-        const distance = plane.distanceToPoint(pt) - camera.near;
-
-        const occluded = distance > depth;
-        console.log('occluded', depth, distance);
-        return occluded;
-      }
+      const occluded = distance > normalizedDepth;
+      // console.log('occluded', depth, distance, normalizedDepth);
+      return occluded;
     }
 
     return false;

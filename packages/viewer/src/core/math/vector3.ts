@@ -59,6 +59,10 @@ export class Vector3 {
     return new Vector3(this.x / mag, this.y / mag, this.z / mag);
   }
 
+  public scale(other: Vector3): Vector3 {
+    return new Vector3(this.x * other.x, this.y * other.y, this.z * other.z);
+  }
+
   public magnitude(): number {
     return Math.sqrt(this.lengthSquared());
   }

@@ -66,8 +66,8 @@
       }
 
       .my-pin {
-        width: 10px;
-        height: 10px;
+        width: 20px;
+        height: 20px;
         background-color: blue;
         /* border-radius: 50%; */
       }
@@ -75,7 +75,7 @@
       .my-hit {
         width: 5px;
         height: 5px;
-        background-color: limegreen;
+        background-color: red;
         border-radius: 50%;
       }
 
@@ -118,36 +118,37 @@
         obj1.element.className = 'my-pin';
         obj1.position = new Vector3(0, 0, -100);
         obj1.setParent(scene);
+        addBoxInteraction(obj1, viewer);
 
         const obj2 = new CSS3DObject();
         obj2.element.className = 'my-pin';
         obj2.position = new Vector3(0, 0, 100);
         obj2.setParent(scene);
+        addBoxInteraction(obj2, viewer);
 
         const obj3 = new CSS3DObject();
         obj3.element.className = 'my-pin';
-        obj3.position = new Vector3(0, 0, -100);
+        obj3.position = new Vector3(0, 100, 0);
         obj3.setParent(scene);
+        addBoxInteraction(obj3, viewer);
 
         const obj4 = new CSS3DObject();
         obj4.element.className = 'my-pin';
-        obj4.position = new Vector3(0, 100, 0);
+        obj4.position = new Vector3(0, -100, 0);
         obj4.setParent(scene);
+        addBoxInteraction(obj4, viewer);
 
         const obj5 = new CSS3DObject();
         obj5.element.className = 'my-pin';
-        obj5.position = new Vector3(0, -100, 0);
+        obj5.position = new Vector3(100, 0, 0);
         obj5.setParent(scene);
+        addBoxInteraction(obj5, viewer);
 
         const obj6 = new CSS3DObject();
         obj6.element.className = 'my-pin';
-        obj6.position = new Vector3(100, 0, 0);
+        obj6.position = new Vector3(-100, 0, 0);
         obj6.setParent(scene);
-
-        const obj7 = new CSS3DObject();
-        obj7.element.className = 'my-pin';
-        obj7.position = new Vector3(-100, 0, 0);
-        obj7.setParent(scene);
+        addBoxInteraction(obj6, viewer);
 
         const camera = new PerspectiveCamera();
 
@@ -176,13 +177,21 @@
           const [hit] = res.hits;
 
           if (hit != null) {
+            const normal = new Vector3(
+              hit.hitNormal.x || 0,
+              hit.hitNormal.y || 0,
+              hit.hitNormal.z || 0
+            );
+            const offset = normal.scale(new Vector3(2, 2, 2));
+
             const obj = new CSS3DObject();
             obj.element.className = 'my-hit';
             obj.position = new Vector3(
               hit.hitPoint.x,
               hit.hitPoint.y,
               hit.hitPoint.z
-            );
+            ).add(offset);
+
             obj.setParent(scene);
             renderer.render({
               scene,
@@ -193,6 +202,25 @@
               },
             });
           }
+        });
+      }
+
+      function addBoxInteraction(obj, viewer) {
+        obj.element.addEventListener('click', async () => {
+          const camera = (await viewer.scene()).camera();
+          const lookAt = new Vector3(
+            camera.lookAt.x,
+            camera.lookAt.y,
+            camera.lookAt.z
+          );
+          const vv = obj.position
+            .subtract(lookAt)
+            .normalize()
+            .scale(new Vector3(400, 400, 400));
+          const position = obj.position.add(vv);
+          camera
+            .update({ position, up: { x: 0, y: 1, z: 0 } })
+            .render({ animation: { milliseconds: 500 } });
         });
       }
     </script>
@@ -213,7 +241,7 @@
           id="viewer"
           client-id="F180BC7099538A7DE4E5730CAD91D36F8F3B1B2A8824150BE386BAFBD642073G"
           config-env="platdev"
-          src="urn:vertexvis:stream-key:BG3MiUxLvzvUxILMjWwDhA2HbZ9r-Auua-u1"
+          src="urn:vertexvis:stream-key:PEEHH9JMeLJ5Gtea6P-uIBhD83g_CZddcBWM"
         >
           <vertex-viewer-default-toolbar
             placement="bottom-left"

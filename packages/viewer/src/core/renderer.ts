@@ -1,4 +1,5 @@
 import { Dimensions } from '@vertexvis/geometry';
+import { DepthBuffer } from '../workers/depth-buffer';
 import { Camera } from './camera';
 import { ClientScene } from './scene';
 
@@ -6,7 +7,7 @@ export interface RenderParams {
   scene: ClientScene;
   camera: Camera;
   viewport: Dimensions.Dimensions;
-  depthCanvas?: HTMLCanvasElement;
+  depthBuffer?: DepthBuffer;
 }
 
 export interface RenderContext extends RenderParams {

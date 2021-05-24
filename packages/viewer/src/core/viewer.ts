@@ -4,11 +4,15 @@ import { ClientScene } from './scene';
 import '../components';
 import { Frame } from '../types';
 import { Vector3 } from './math';
-import { HtmlImage, loadImageBytes } from '../rendering/imageLoaders';
+import { HtmlImage } from '../rendering/imageLoaders';
 import { ImageAttributes } from '../types/frame';
+import { decodeDepth } from '../workers/depth-buffer.worker';
+import { DepthBuffer } from '../workers/depth-buffer';
 
 export class SyncedViewerElementRenderer implements Renderer {
   public onBeforeRender?: (frame: Frame.Frame) => Promise<void>;
+
+  private lastDepthBuffer?: DepthBuffer;
 
   public constructor(
     private viewer: HTMLVertexViewerElement,
@@ -27,7 +31,10 @@ export class SyncedViewerElementRenderer implements Renderer {
 
   public render(params: RenderParams): void {
     requestAnimationFrame(() => {
-      this.renderer.render(params);
+      this.renderer.render({
+        ...params,
+        depthBuffer: params.depthBuffer || this.lastDepthBuffer,
+      });
     });
   }
 
@@ -38,15 +45,24 @@ export class SyncedViewerElementRenderer implements Renderer {
     const height = this.viewer.clientHeight;
 
     if (frame.depthBuffer != null) {
-      loadImageBytes(frame.depthBuffer).then((image) => {
-        const canvas = this.createDepthCanvas(image, frame.imageAttributes);
+      decodeDepth(frame.depthBuffer).then((decoded) => {
+        this.lastDepthBuffer = { ...decoded, imageAttr: frame.imageAttributes };
+
         this.render({
           scene: this.scene,
           camera: this.camera,
           viewport: { width, height },
-          depthCanvas: canvas,
         });
       });
+      // loadImageBytes(frame.depthBuffer).then((image) => {
+      //   const canvas = this.createDepthCanvas(image, frame.imageAttributes);
+      //   this.render({
+      //     scene: this.scene,
+      //     camera: this.camera,
+      //     viewport: { width, height },
+      //     depthCanvas: canvas,
+      //   });
+      // });
     }
 
     this.camera.position = new Vector3(position.x, position.y, position.z);
@@ -61,7 +77,7 @@ export class SyncedViewerElementRenderer implements Renderer {
       scene: this.scene,
       camera: this.camera,
       viewport: { width, height },
-      depthCanvas: undefined,
+      depthBuffer: undefined,
     });
   }
 
