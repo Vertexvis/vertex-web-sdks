@@ -210,6 +210,14 @@ Type: `Promise<ViewerDistanceMeasurementElementMetrics | undefined>`
 | `"start-label"`  | An HTML or text element that displays next to the start anchor. |
 
 
+## Slots
+
+| Slot                                                            | Description |
+| --------------------------------------------------------------- | ----------- |
+| `"end-anchor An HTML element for the ending point anchor."`     |             |
+| `"start-anchor An HTML element for the starting point anchor."` |             |
+
+
 ## CSS Custom Properties
 
 | Name                                                   | Description                                                                                         |
